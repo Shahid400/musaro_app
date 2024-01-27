@@ -16,6 +16,12 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
-    "noFallthroughCasesInSwitch": false
-  }
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "@shared/abstracts": ["src/shared/abstracts"],
+      "@shared/constants": ["src/shared/constants"],
+      "@shared/utils": ["src/shared/utils"],
+      "@shared/interfaces": ["src/shared/interfaces"],
+    }
+  },
 }

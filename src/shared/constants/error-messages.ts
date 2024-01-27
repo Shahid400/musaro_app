@@ -1,5 +1,5 @@
 import { ValidationError } from '@nestjs/common';
-import { toCapitalizeFirst, toTitleCase } from './naming-functions';
+import { toCapitalizeFirst, toTitleCase } from '@shared/utils';
 
 export const extractErrorMessages = (
   error: ValidationError,

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { extractErrorMessages } from './shared/constants';
+import { extractErrorMessages } from '@shared/constants';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -27,6 +27,7 @@ async function bootstrap() {
         enableImplicitConversion: true,
       },
       exceptionFactory: (validationErrors: ValidationError[] = []) => {
+        /* Un-expected error handling */
         let errors: null | string[] = null;
         validationErrors.forEach((error) => {
           const errMessages = extractErrorMessages(error);
