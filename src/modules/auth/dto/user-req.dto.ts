@@ -16,13 +16,13 @@ export class UserNameReqDto {
   @ApiProperty({ example: 'username' })
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[a-zA-Z][a-zA-Z0-9]*$/, {
+  @Matches(/^[a-zA-Z][a-zA-Z0-9_-]{2,25}$/, {
     message:
-      'Username must start with an alphabet and can contain alphanumeric characters.',
+      'Username must start with an alphabet and can contain alphanumeric characters, hyphens, or underscores. It should be between 3 and 26 characters long.',
   })
-  @Length(1, 20, {
-    message: 'Username can be max 20 characters long.',
-  })
+  // @Length(1, 20, {
+  //   message: 'Username can be max 20 characters long.',
+  // })
   userName: string;
 }
 
@@ -77,10 +77,29 @@ export class SignUpReqDto {
   city: string;
 }
 
+export class LoginReqDto {
+  @ApiProperty({ example: 'username' })
+  @IsString()
+  @IsNotEmpty()
+  userName: string;
+
+  @ApiProperty({ example: 'Abc@123' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
 export class VerifyOtpReqDto extends UserIdDto {
   @ApiProperty({ example: '65c0206ac4f42c21f12e1bbb' })
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
   otpCode: number;
+}
+
+export class ForgotPasswordReqDto {
+  @ApiProperty({ example: 'username' })
+  @IsString()
+  @IsNotEmpty()
+  userName: string;
 }

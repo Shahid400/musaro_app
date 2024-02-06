@@ -10,7 +10,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UserRepository } from './user.repository';
 import { IUserService } from './interfaces/service.interface';
 import { IUser, IVerifyOtp } from './interfaces';
-import { generateOtpWithExpiry } from '@shared/utils';
+import { Hash, generateOtpWithExpiry } from '@shared/utils';
 import { IOTP } from '@shared/interfaces';
 import { ResponseMessage } from '@shared/constants';
 
@@ -33,9 +33,8 @@ export class UserService {
     return null;
   }
 
-  async create(payload: IUser) {
-    const { password, passwordConfirmation, userName, mobile, ...restPayload } =
-      payload;
+  async createUser1(payload: IUser) {
+    const { passwordConfirmation, userName, mobile, ...restPayload } = payload;
 
     const mobileExists = await this.userRepository.findOne(
       {
@@ -48,23 +47,61 @@ export class UserService {
       throw new ConflictException(ResponseMessage.MOBILE_ALREADY_EXISTS);
 
     await this.checkUserName({ userName });
-    const hashedPassword = password; // TODO: encrypt password
+    restPayload.password = await Hash.make(restPayload.password);
 
     const otp: IOTP = generateOtpWithExpiry();
     const response = await this.userRepository.create({
       ...restPayload,
       userName,
       mobile,
-      hashedPassword,
       otp,
     });
     delete response.otp;
-    delete response.hashedPassword;
+    delete response.password;
     // TODO: send otp
     return response;
   }
 
-  async reSendOtp(payload: { userId: string }) {
+  async createUser({ password, ...payload }: IUser) {
+    const { userName, mobile } = payload;
+
+    // Combine queries to check if username or mobile already exists
+    const existingUser = await this.userRepository.findOne(
+      {
+        $or: [{ userName: userName.toLowerCase() }, { mobile }],
+      },
+      { userName: 1, mobile: 1 },
+      { notFoundThrowError: false },
+    );
+
+    if (existingUser)
+      throw new ConflictException(
+        existingUser.userName === userName.toLowerCase()
+          ? ResponseMessage.USERNAME_ALREADY_EXISTS
+          : ResponseMessage.MOBILE_ALREADY_EXISTS,
+      );
+
+    // Hash password and generate OTP asynchronously in parallel
+    const [hashedPassword, otp] = await Promise.all([
+      Hash.make(password),
+      generateOtpWithExpiry(),
+    ]);
+
+    // Create user
+    const newUser = await this.userRepository.create({
+      ...payload,
+      userName,
+      mobile,
+      password: hashedPassword,
+      otp,
+    });
+
+    // Omit sensitive fields from response
+    const { password: _, otp: __, ...response } = newUser;
+    return response;
+  }
+
+  async resendOtp(payload: { userId: string }) {
     try {
       const { userId } = payload;
       const otp: IOTP = generateOtpWithExpiry();
@@ -103,8 +140,16 @@ export class UserService {
     return `This action returns all user`;
   }
 
-  async findOne(id: number) {
-    return `This action returns a #${id} user`;
+  async findOne(payload: any) {
+    return await this.userRepository.findOne({ ...payload });
+  }
+
+  async getUserWithoutException(payload: any) {
+    return await this.userRepository.findOne(
+      { ...payload },
+      {},
+      { notFoundThrowError: false },
+    );
   }
 
   async update(id: number, updateUserDto: UpdateUserDto) {

@@ -8,6 +8,19 @@ export interface IUser {
   city: string;
 }
 
+export interface IUserRes {
+  _id: string;
+  name: string;
+  mobile: string;
+  role: string;
+  userName: string;
+  city: string;
+  isActive: boolean;
+  reason: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface IUserName {
   userName: string;
 }

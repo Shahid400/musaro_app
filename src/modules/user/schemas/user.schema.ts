@@ -23,7 +23,7 @@ export class User extends AbstractSchema<string> {
   userName: string;
 
   @Prop({ type: String, required: true })
-  hashedPassword: string;
+  password: string;
 
   @Prop({ type: String, required: true })
   city: string;
