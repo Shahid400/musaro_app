@@ -1,3 +1,3 @@
-import { IAbstractRepository } from "@shared/interfaces"
+import { IAbstractRepository } from '@shared/interfaces';
 
-export interface IUserRepository<T> extends IAbstractRepository<T> { }
+export interface IUserRepository<T> extends IAbstractRepository<T> {}

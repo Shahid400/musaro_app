@@ -1,5 +1,7 @@
 import { SchemaFactory, Prop, Schema } from '@nestjs/mongoose';
 import { AbstractSchema } from '@shared/abstracts';
+import { UserRole } from '@shared/constants';
+import { IOTP } from '@shared/interfaces';
 import mongoose, { SchemaTypes, Types } from 'mongoose';
 
 @Schema({
@@ -8,60 +10,77 @@ import mongoose, { SchemaTypes, Types } from 'mongoose';
   timestamps: true,
 })
 export class User extends AbstractSchema<string> {
-  // @Prop({ type: String, required: true })
-  // _id: string;
+  @Prop({ type: String, required: true })
+  name: string;
+
+  @Prop({ type: String, required: true, unique: true })
+  mobile: string;
+
+  @Prop({ type: String, required: true, enum: UserRole })
+  role: string;
+
+  @Prop({ type: String, required: true, unique: true })
+  userName: string;
 
   @Prop({ type: String, required: true })
-  firstName: string;
+  hashedPassword: string;
+
+  @Prop({ type: String, required: true })
+  city: string;
 
   @Prop({ type: String, required: false })
-  lastName: string;
+  profilePicture?: string;
 
-  // @Prop({ type: Date, required: false })
-  // dob: Date;
+  @Prop({ type: Boolean, required: false, default: false })
+  isVerified?: boolean;
 
-  // @Prop({ type: String, required: false })
-  // contactNumber: string;
+  @Prop({ type: Boolean, required: false, default: false })
+  isActive?: boolean;
 
-  // @Prop({ type: String, required: false })
-  // gender: string;
+  @Prop({ type: String, required: false, default: 'Pending Approval' })
+  reason?: string;
 
-  // @Prop({
-  //   type: mongoose.Schema.Types.ObjectId,
-  //   required: false,
-  //   // ref: CompanyLocation.name,
-  // })
-  // location: string;
+  // Below fields are specifically for service provider
+  @Prop({ type: String, required: false })
+  type?: string;
 
-  // @Prop({ type: String, required: true })
-  // defaultRole: string;
+  @Prop({ type: String, required: false })
+  idNumber?: string;
 
-  // @Prop({
-  //   type: String,
-  //   required: false,
-  //   // ref: Role.name
-  // })
-  // role: string;
+  @Prop({ type: String, required: false })
+  idPicture?: string;
 
-  // @Prop({ type: Boolean, default: true })
-  // isActive?: boolean;
+  @Prop({ type: String, required: false })
+  whatsapp?: string;
 
-  // @Prop({ type: String, required: false })
-  // profileImage: string;
+  @Prop({ type: String, required: false })
+  officeNumber?: string;
 
-  // @Prop({ type: [Object], required: false })
-  // userPermissions?: object[];
+  @Prop({ type: String, required: false })
+  yearsOfExperience?: string;
 
-  // @Prop({
-  //   type: String,
-  //   // enum: VerificationStatusEnum,
-  //   // default: VerificationStatusEnum.NOT_STARTED,
-  //   required: false,
-  // })
-  // verificationStatus: string;
+  @Prop({ type: String, required: false })
+  serviceDescription?: string;
 
-  // @Prop({ type: String, required: false })
-  // createdBy?: string;
+  @Prop({ type: String, required: false })
+  paymentPlan?: string;
+
+  @Prop({ type: Date, required: false })
+  subscriptionStart?: Date;
+
+  @Prop({ type: Date, required: false })
+  subscriptionEnd?: Date;
+
+  @Prop({ type: String, required: false })
+  paymentOption?: string;
+
+  @Prop({
+    type: {
+      code: { type: Number, required: true },
+      expiresAt: { type: Date, required: true },
+    },
+  })
+  otp: IOTP;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

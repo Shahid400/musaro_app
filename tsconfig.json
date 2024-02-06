@@ -14,12 +14,13 @@
     "skipLibCheck": true,
     "strictNullChecks": false,
     "noImplicitAny": false,
-    "strictBindCallApply": false,
+    "strictBindCallApply": true,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
       "@shared/abstracts": ["src/shared/abstracts"],
       "@shared/constants": ["src/shared/constants"],
+      "@shared/dto": ["src/shared/dto"],
       "@shared/utils": ["src/shared/utils"],
       "@shared/interfaces": ["src/shared/interfaces"],
     }

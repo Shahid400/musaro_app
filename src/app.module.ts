@@ -6,6 +6,7 @@ import { ExceptionsFilter } from './filters';
 import { ResponseInterceptor } from './interceptors';
 import { UserModule } from './modules/user/user.module';
 import { MongooseModule } from '@nestjs/mongoose';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -17,9 +18,11 @@ import { MongooseModule } from '@nestjs/mongoose';
     }),
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: `.${process.env.NODE_ENV || 'development'}.env`,
+      envFilePath: `.env`,
+      // envFilePath: `.${process.env.NODE_ENV || 'development'}.env`,
     }),
     UserModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [
