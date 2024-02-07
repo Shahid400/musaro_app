@@ -1,9 +1,8 @@
 export interface IUser {
   role: string;
   mobile: string;
-  userName: string;
+  username: string;
   password: string;
-  passwordConfirmation: string;
   name: string;
   city: string;
 }
@@ -13,7 +12,7 @@ export interface IUserRes {
   name: string;
   mobile: string;
   role: string;
-  userName: string;
+  username: string;
   city: string;
   isActive: boolean;
   reason: string;
@@ -22,10 +21,10 @@ export interface IUserRes {
 }
 
 export interface IUserName {
-  userName: string;
+  username: string;
 }
 
 export interface IVerifyOtp {
-  userId: string;
+  mobile: string;
   otpCode: number;
 }

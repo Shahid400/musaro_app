@@ -6,6 +6,7 @@ import {
   Param,
   HttpCode,
   HttpStatus,
+  Patch,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
@@ -14,6 +15,9 @@ import {
   UserNameReqDto,
   LoginReqDto,
   ForgotPasswordReqDto,
+  ChangePasswordReqDto,
+  ResetPasswordReqDto,
+  ResendOtpReqDto,
 } from './dto/user-req.dto';
 import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { SignUpResDto } from './dto/user-res.dto';
@@ -24,7 +28,7 @@ import { UserIdDto } from '@shared/dto';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Get('user-name/:userName')
+  @Get('user-name/:username')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: SignUpResDto })
   async checkUserName(@Param() payload: UserNameReqDto) {
@@ -48,7 +52,7 @@ export class AuthController {
   @Post('resend-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: SignUpResDto })
-  async resendOtp(@Body() payload: UserIdDto) {
+  async resendOtp(@Body() payload: ResendOtpReqDto) {
     return await this.authService.resendOtp(payload);
   }
 
@@ -64,5 +68,22 @@ export class AuthController {
   @ApiOkResponse({ type: SignUpResDto })
   async forgotPassword(@Body() payload: ForgotPasswordReqDto) {
     return await this.authService.forgotPassword(payload);
+  }
+
+  @Patch('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: SignUpResDto })
+  async changePassword(@Body() payload: ChangePasswordReqDto) {
+    return await this.authService.changePassword(payload);
+  }
+
+  @Patch('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: SignUpResDto })
+  async resetPassword(
+    @Param() param: UserIdDto,
+    @Body() payload: ResetPasswordReqDto,
+  ) {
+    return await this.authService.resetPassword({ ...param, ...payload });
   }
 }

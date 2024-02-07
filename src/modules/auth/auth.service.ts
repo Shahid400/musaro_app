@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { IUser, IVerifyOtp, User, UserRepository } from '../user';
 import { JwtService } from '@nestjs/jwt';
@@ -16,14 +17,14 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async checkUserName(payload: { userName: string }) {
+  async checkUserName(payload: { username: string }) {
     try {
-      let { userName } = payload;
+      let { username } = payload;
       const userNameExists = await this.userRepository.findOne(
         {
-          userName: userName.toLowerCase(),
+          username: username.toLowerCase(),
         },
-        { userName: 1 },
+        { username: 1 },
         { notFoundThrowError: false },
       );
       if (userNameExists)
@@ -35,114 +36,83 @@ export class AuthService {
     }
   }
 
-  private async createUser({ password, ...payload }: IUser) {
-    const { userName, mobile } = payload;
-
-    // Combine queries to check if username or mobile already exists
-    const existingUser = await this.userRepository.findOne(
-      {
-        $or: [{ userName: userName.toLowerCase() }, { mobile }],
-      },
-      { userName: 1, mobile: 1 },
-      { notFoundThrowError: false },
-    );
-
-    if (existingUser)
-      throw new ConflictException(
-        existingUser.userName === userName.toLowerCase()
-          ? ResponseMessage.USERNAME_ALREADY_EXISTS
-          : ResponseMessage.MOBILE_ALREADY_EXISTS,
-      );
-
-    // Hash password and generate OTP asynchronously in parallel
-    const [hashedPassword, otp] = await Promise.all([
-      Hash.make(password),
-      generateOtpWithExpiry(),
-    ]);
-
-    // Create user
-    const newUser = await this.userRepository.create({
-      ...payload,
-      userName,
-      mobile,
-      password: hashedPassword,
-      otp,
-    });
-
-    // Omit sensitive fields from response
-    const { password: _, otp: __, ...response } = newUser;
-    return response;
-  }
-
-  private async createToken(
-    user: User,
-    expiryTime?: number | string,
-    subject?: string,
-  ) {
-    return {
-      expiresIn: process.env.JWT_EXPIRATION_TIME,
-      accessToken: this.jwtService.sign(
-        { userId: user._id },
-        {
-          subject: subject ? process.env.JWT_SECRET_KEY + user.password : '',
-          expiresIn: expiryTime ? expiryTime : process.env.JWT_EXPIRATION_TIME,
-        },
-      ),
-      user: {
-        userId: user._id,
-        role: user.role,
-        mobile: user.mobile,
-        userName: user.userName,
-        city: user.city,
-      },
-    };
-  }
-
   async signup(payload: IUser) {
-    return new Promise<User>(async (resolve, reject) => {
-      await this.createUser(payload)
-        .then(async (user: User) => {
-          await this.createToken(user);
-          return resolve(user);
-        })
-        .catch((err) => {
-          reject(err);
-        });
-    });
-  }
-
-  async login(payload: any) {
     try {
-      const { userName, password } = payload;
-      const user = await this.userRepository.findOne(
-        { userName },
-        {},
+      const { username, mobile, password } = payload;
+
+      // Check if username or mobile already exists
+      const existingUser = await this.userRepository.findOne(
+        {
+          $or: [{ username: username.toLowerCase() }, { mobile }],
+        },
+        { username: 1, mobile: 1 },
         { notFoundThrowError: false },
       );
-      if (!user) {
-        throw new BadRequestException(
-          ResponseMessage.INVALID_USERNAME_OR_PASSWORD,
+
+      if (existingUser)
+        throw new ConflictException(
+          existingUser.username === username.toLowerCase()
+            ? ResponseMessage.USERNAME_ALREADY_EXISTS
+            : ResponseMessage.MOBILE_ALREADY_EXISTS,
         );
-      }
-      const isValidPassword = await Hash.compare(password, user.password);
-      if (!isValidPassword) {
-        throw new BadRequestException(
-          ResponseMessage.INVALID_USERNAME_OR_PASSWORD,
-        );
-      }
-      return await this.createToken(user);
+
+      // Hash password and generate OTP asynchronously in parallel
+      const [hashedPassword, otp] = await Promise.all([
+        Hash.make(password),
+        generateOtpWithExpiry(),
+      ]);
+
+      // Create user
+      const newUser = await this.userRepository.create({
+        ...payload,
+        username: username.toLowerCase(),
+        password: hashedPassword,
+        otp,
+      });
+
+      // Omit sensitive fields from response
+      const { password: _, otp: __, ...response } = newUser;
+      return response;
     } catch (error) {
       throw error;
     }
   }
 
-  async resendOtp(payload: { userId: string }) {
+  async login(payload: any) {
     try {
-      const { userId } = payload;
+      const { username, password } = payload;
+      const user = await this.userRepository.findOne(
+        { username },
+        { otp: 0 },
+        { notFoundThrowError: false },
+      );
+      if (!user || !(await Hash.compare(password, user?.password))) {
+        throw new BadRequestException(
+          ResponseMessage.INVALID_USERNAME_OR_PASSWORD,
+        );
+      }
+      delete user.password;
+      return {
+        accessToken: this.jwtService.sign(
+          { username: user.username, sub: user._id },
+          {
+            expiresIn: process.env.JWT_EXPIRATION_TIME,
+          },
+        ),
+        user,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async resendOtp(payload: { mobile: string }) {
+    try {
+      const { mobile } = payload;
       const otp: IOTP = generateOtpWithExpiry();
       await this.userRepository.findOneAndUpdate(
         {
-          _id: userId,
+          mobile,
         },
         { $set: { otp: otp, isVerified: false } },
       );
@@ -154,10 +124,10 @@ export class AuthService {
 
   async verifyOtp(payload: IVerifyOtp) {
     try {
-      const { userId, otpCode } = payload;
+      const { mobile, otpCode } = payload;
       const response = await this.userRepository.findOneAndUpdate(
         {
-          _id: userId,
+          mobile: mobile,
           'otp.code': otpCode,
           'otp.expiresAt': { $gt: new Date() }, // Check if the OTP is not expired
         },
@@ -171,9 +141,75 @@ export class AuthService {
     }
   }
 
+  async verifyToken(payload: any) {
+    try {
+      const { token } = payload;
+      const decoded = this.jwtService.decode(token);
+      if (!decoded || !decoded?.sub)
+        throw new UnauthorizedException('Invalid Token');
+      const user = await this.userRepository.findOne({
+        username: decoded?.username,
+      });
+      const { password, ...result } = user;
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async forgotPassword(payload: any) {
     try {
-      //
+      const { mobile } = payload;
+      const user = await this.userRepository.findOne(
+        { mobile },
+        { _id: 1, mobile: 1 },
+      );
+      const otp = generateOtpWithExpiry();
+
+      // TODO: Send OTP to user's mobile
+      await this.userRepository.findOneAndUpdate(
+        { _id: user?._id },
+        { $set: { otp: otp } },
+      );
+      return null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async changePassword(payload: any) {
+    try {
+      const { mobile, password } = payload;
+      const hashedPassword = await Hash.make(password);
+      await this.userRepository.findOneAndUpdate(
+        { mobile },
+        { $set: { password: hashedPassword } },
+      );
+      return null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async resetPassword(payload: any) {
+    try {
+      const { userId, oldPassword, newPassword } = payload;
+      const user = await this.userRepository.findOne(
+        { _id: userId },
+        { password: 1 },
+        { notFoundThrowError: false },
+      );
+      if (!user || !(await Hash.compare(oldPassword, user?.password))) {
+        throw new BadRequestException(ResponseMessage.INVALID_LOGIN_PASSWORD);
+      }
+
+      // TODO: For security purpose: Send OTP
+
+      const hashedPassword = await Hash.make(newPassword);
+      await this.userRepository.findOneAndUpdate(
+        { userId },
+        { $set: { password: hashedPassword } },
+      );
       return null;
     } catch (error) {
       throw error;

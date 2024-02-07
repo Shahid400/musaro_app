@@ -1,7 +1,5 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { ResponseMessage, UserRole } from '@shared/constants';
-import { UserIdDto } from '@shared/dto';
-import { SameAs } from '@shared/utils';
 import { Type } from 'class-transformer';
 import {
   IsMongoId,
@@ -23,7 +21,7 @@ export class UserNameReqDto {
   // @Length(1, 20, {
   //   message: 'Username can be max 20 characters long.',
   // })
-  userName: string;
+  username: string;
 }
 
 export class SignUpReqDto {
@@ -47,9 +45,9 @@ export class SignUpReqDto {
   @Length(1, 20, {
     message: 'Username can be max 20 characters long.',
   })
-  userName: string;
+  username: string;
 
-  @ApiProperty({ example: 'Abc@123' })
+  @ApiProperty({ example: 'Abc@1234' })
   @IsString()
   @IsNotEmpty()
   @Matches(
@@ -59,12 +57,6 @@ export class SignUpReqDto {
     },
   )
   password: string;
-
-  @ApiProperty({ example: 'Abc@123' })
-  @IsString()
-  @IsNotEmpty()
-  @SameAs(`password`)
-  passwordConfirmation: string;
 
   @ApiProperty({ example: 'name' })
   @IsString()
@@ -81,16 +73,28 @@ export class LoginReqDto {
   @ApiProperty({ example: 'username' })
   @IsString()
   @IsNotEmpty()
-  userName: string;
+  username: string;
 
-  @ApiProperty({ example: 'Abc@123' })
+  @ApiProperty({ example: 'Abc@1234' })
   @IsString()
   @IsNotEmpty()
   password: string;
 }
 
-export class VerifyOtpReqDto extends UserIdDto {
-  @ApiProperty({ example: '65c0206ac4f42c21f12e1bbb' })
+export class ResendOtpReqDto {
+  @ApiProperty({ example: '03123456789' })
+  @IsString()
+  @IsNotEmpty()
+  mobile: string;
+}
+
+export class VerifyOtpReqDto {
+  @ApiProperty({ example: '03123456789' })
+  @IsString()
+  @IsNotEmpty()
+  mobile: string;
+
+  @ApiProperty({ example: '12345' })
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
@@ -98,8 +102,44 @@ export class VerifyOtpReqDto extends UserIdDto {
 }
 
 export class ForgotPasswordReqDto {
-  @ApiProperty({ example: 'username' })
+  @ApiProperty({ example: '03123456789' })
   @IsString()
   @IsNotEmpty()
-  userName: string;
+  mobile: string;
+}
+
+export class ChangePasswordReqDto {
+  @ApiProperty({ example: '03123456789' })
+  @IsString()
+  @IsNotEmpty()
+  mobile: string;
+
+  @ApiProperty({ example: 'Abc@1234' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[$&+,:;=?@#|'<>.^*()_%!-])[A-Za-z\d$&+,:;=?@#|'<>.^*()_%!-]{8,}$/,
+    {
+      message: ResponseMessage.INVALID_PASSWORD,
+    },
+  )
+  password: string;
+}
+
+export class ResetPasswordReqDto {
+  @ApiProperty({ example: 'Abc@1234' })
+  @IsString()
+  @IsNotEmpty()
+  oldPassword: string;
+
+  @ApiProperty({ example: 'Abc@1234' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[$&+,:;=?@#|'<>.^*()_%!-])[A-Za-z\d$&+,:;=?@#|'<>.^*()_%!-]{8,}$/,
+    {
+      message: ResponseMessage.INVALID_PASSWORD,
+    },
+  )
+  newPassword: string;
 }
