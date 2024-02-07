@@ -1,25 +1,218 @@
-import { Injectable } from '@nestjs/common';
-import { SignUpReqDto } from './dto/user-req.dto';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { IUser, IVerifyOtp, User, UserRepository } from '../user';
+import { JwtService } from '@nestjs/jwt';
+import { ResponseMessage } from '@shared/constants';
+import { Hash, generateOtpWithExpiry } from '@shared/utils';
+import { IOTP } from '@shared/interfaces';
 
 @Injectable()
 export class AuthService {
-  async create(createAuthDto: SignUpReqDto) {
-    return 'This action adds a new auth';
+  constructor(
+    private readonly userRepository: UserRepository,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  async checkUserName(payload: { username: string }) {
+    try {
+      let { username } = payload;
+      const userNameExists = await this.userRepository.findOne(
+        {
+          username: username.toLowerCase(),
+        },
+        { username: 1 },
+        { notFoundThrowError: false },
+      );
+      if (userNameExists)
+        throw new ConflictException(ResponseMessage.USERNAME_ALREADY_EXISTS);
+
+      return null;
+    } catch (error) {
+      throw error;
+    }
   }
 
-  async findAll() {
-    return `This action returns all auth`;
+  async signup(payload: IUser) {
+    try {
+      const { username, mobile, password } = payload;
+
+      // Check if username or mobile already exists
+      const existingUser = await this.userRepository.findOne(
+        {
+          $or: [{ username: username.toLowerCase() }, { mobile }],
+        },
+        { username: 1, mobile: 1 },
+        { notFoundThrowError: false },
+      );
+
+      if (existingUser)
+        throw new ConflictException(
+          existingUser.username === username.toLowerCase()
+            ? ResponseMessage.USERNAME_ALREADY_EXISTS
+            : ResponseMessage.MOBILE_ALREADY_EXISTS,
+        );
+
+      // Hash password and generate OTP asynchronously in parallel
+      const [hashedPassword, otp] = await Promise.all([
+        Hash.make(password),
+        generateOtpWithExpiry(),
+      ]);
+
+      // Create user
+      const newUser = await this.userRepository.create({
+        ...payload,
+        username: username.toLowerCase(),
+        password: hashedPassword,
+        otp,
+      });
+
+      // Omit sensitive fields from response
+      const { password: _, otp: __, ...response } = newUser;
+      return response;
+    } catch (error) {
+      throw error;
+    }
   }
 
-  async findOne(id: number) {
-    return `This action returns a #${id} auth`;
+  async login(payload: any) {
+    try {
+      const { username, password } = payload;
+      const user = await this.userRepository.findOne(
+        { username },
+        { otp: 0 },
+        { notFoundThrowError: false },
+      );
+      if (!user || !(await Hash.compare(password, user?.password))) {
+        throw new BadRequestException(
+          ResponseMessage.INVALID_USERNAME_OR_PASSWORD,
+        );
+      }
+      delete user.password;
+      return {
+        accessToken: this.jwtService.sign(
+          { username: user.username, sub: user._id },
+          {
+            expiresIn: process.env.JWT_EXPIRATION_TIME,
+          },
+        ),
+        user,
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
-  async update(id: number, updateAuthDto: any) {
-    return `This action updates a #${id} auth`;
+  async resendOtp(payload: { mobile: string }) {
+    try {
+      const { mobile } = payload;
+      const otp: IOTP = generateOtpWithExpiry();
+      await this.userRepository.findOneAndUpdate(
+        {
+          mobile,
+        },
+        { $set: { otp: otp, isVerified: false } },
+      );
+      return null;
+    } catch (error) {
+      throw error;
+    }
   }
 
-  async remove(id: number) {
-    return `This action removes a #${id} auth`;
+  async verifyOtp(payload: IVerifyOtp) {
+    try {
+      const { mobile, otpCode } = payload;
+      const response = await this.userRepository.findOneAndUpdate(
+        {
+          mobile: mobile,
+          'otp.code': otpCode,
+          'otp.expiresAt': { $gt: new Date() }, // Check if the OTP is not expired
+        },
+        { $set: { otp: null, isVerified: true } },
+        { notFoundThrowError: false },
+      );
+      if (!response) throw new BadRequestException(ResponseMessage.INVALID_OTP);
+      return null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async verifyToken(payload: any) {
+    try {
+      const { token } = payload;
+      const decoded = this.jwtService.decode(token);
+      if (!decoded || !decoded?.sub)
+        throw new UnauthorizedException('Invalid Token');
+      const user = await this.userRepository.findOne({
+        username: decoded?.username,
+      });
+      const { password, ...result } = user;
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async forgotPassword(payload: any) {
+    try {
+      const { mobile } = payload;
+      const user = await this.userRepository.findOne(
+        { mobile },
+        { _id: 1, mobile: 1 },
+      );
+      const otp = generateOtpWithExpiry();
+
+      // TODO: Send OTP to user's mobile
+      await this.userRepository.findOneAndUpdate(
+        { _id: user?._id },
+        { $set: { otp: otp } },
+      );
+      return null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async changePassword(payload: any) {
+    try {
+      const { mobile, password } = payload;
+      const hashedPassword = await Hash.make(password);
+      await this.userRepository.findOneAndUpdate(
+        { mobile },
+        { $set: { password: hashedPassword } },
+      );
+      return null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async resetPassword(payload: any) {
+    try {
+      const { userId, oldPassword, newPassword } = payload;
+      const user = await this.userRepository.findOne(
+        { _id: userId },
+        { password: 1 },
+        { notFoundThrowError: false },
+      );
+      if (!user || !(await Hash.compare(oldPassword, user?.password))) {
+        throw new BadRequestException(ResponseMessage.INVALID_LOGIN_PASSWORD);
+      }
+
+      // TODO: For security purpose: Send OTP
+
+      const hashedPassword = await Hash.make(newPassword);
+      await this.userRepository.findOneAndUpdate(
+        { userId },
+        { $set: { password: hashedPassword } },
+      );
+      return null;
+    } catch (error) {
+      throw error;
+    }
   }
 }

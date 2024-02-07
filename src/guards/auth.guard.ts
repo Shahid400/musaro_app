@@ -6,12 +6,13 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { AuthService } from '@auth';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    // @Inject(SERVICES.USER_ACCOUNT) private readonly authService: ClientProxy
+    private readonly authService: AuthService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -28,11 +29,8 @@ export class AuthGuard implements CanActivate {
         throw new UnauthorizedException('Please provide token');
       }
       const authToken = authorization.replace(/bearer/gim, '').trim();
-      const resp = ''; // TODO: implement function to verify token
-      // await firstValueFrom(
-      //   this.authService.send(VERIFY_TOKEN, { token: authToken })
-      // );
-      request.user = resp;
+      const response = await this.authService.verifyToken({ token: authToken });
+      request.user = response;
       return true;
     } catch (error) {
       throw new ForbiddenException(

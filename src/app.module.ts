@@ -19,7 +19,7 @@ import { AuthModule } from './modules/auth/auth.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: `.env`,
-      // envFilePath: `.${process.env.NODE_ENV || 'development'}.env`,
+      // envFilePath: `.${process.env.APP_ENV || 'development'}.env`,
     }),
     UserModule,
     AuthModule,

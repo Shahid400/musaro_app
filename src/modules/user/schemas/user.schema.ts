@@ -20,10 +20,10 @@ export class User extends AbstractSchema<string> {
   role: string;
 
   @Prop({ type: String, required: true, unique: true })
-  userName: string;
+  username: string;
 
   @Prop({ type: String, required: true })
-  hashedPassword: string;
+  password: string;
 
   @Prop({ type: String, required: true })
   city: string;

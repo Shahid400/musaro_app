@@ -6,14 +6,17 @@ import {
   Patch,
   Param,
   Delete,
+  Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Auth } from 'src/decorators/auth.decorator';
 
 @Controller('user')
 @ApiTags('User')
+@ApiBearerAuth()
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
@@ -26,10 +29,12 @@ export class UserController {
   async findAll() {
     return this.userService.findAll();
   }
-
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.userService.findOne(+id);
+  @Auth()
+  async findOne(@Param('id') id: string, @Req() req: any) {
+    console.log('========> ', req?.user);
+    return null;
+    // return this.userService.findOne(id);
   }
 
   @Patch(':id')
